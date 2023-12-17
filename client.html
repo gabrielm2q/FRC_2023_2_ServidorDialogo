@@ -1,14 +1,69 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>Webcam Stream and Chat</title>
     <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+            font-family: 'Arial', sans-serif;
+        }
+
         #videoElement {
             width: 480px;
             height: 360px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        #chat {
+            display: flex;
+            flex-direction: column;
+            width: 480px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #fff;
+        }
+
+        #chatWindow {
+            height: 200px;
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow-y: scroll;
+        }
+
+        #chatInput {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        #sendButton {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: #0078d4;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #sendButton:hover {
+            background-color: #005a9e;
         }
     </style>
 </head>
+
 <body>
     <h1>Webcam Stream and Chat</h1>
     <video autoplay="true" id="videoElement"></video>
@@ -23,15 +78,32 @@
         var chatInput = document.querySelector("#chatInput");
         var sendButton = document.querySelector("#sendButton");
 
-        var ws = new WebSocket('ws://localhost:8765');
+        var ws = null;
+        function connect() {
+            ws = new WebSocket('ws://localhost:8765');
+            ws.onopen = function (event) {
+                ws.send('Hello Server!');
+            }
+            ws.onclose = function (event) {
+                setTimeout(function () {
+                    connect();
+                }, 5000);
+            }
+            ws.onmessage = function (event) {
+                chatWindow.value += '\n' + event.data;
+            };
+            ws.onerror = function (event) {
+                console.log("Something went wrong!");
+                ws = null;
+            };
+        }
+        connect();
 
-        ws.onmessage = function(event) {
-            chatWindow.value += '\n' + event.data;
-        };
-
-        sendButton.onclick = function() {
-            ws.send(chatInput.value);
-            chatInput.value = '';
+        sendButton.onclick = function () {
+            if (ws !== null) {
+                ws.send(chatInput.value);
+                chatInput.value = '';
+            }
         };
 
         if (navigator.mediaDevices.getUserMedia) {
@@ -45,4 +117,5 @@
         }
     </script>
 </body>
+
 </html>
