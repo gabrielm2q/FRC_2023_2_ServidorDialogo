@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Webcam Stream and Chat</title>
+    <style>
+        #videoElement {
+            width: 480px;
+            height: 360px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Webcam Stream and Chat</h1>
+    <video autoplay="true" id="videoElement"></video>
+    <div id="chat">
+        <textarea id="chatWindow" readonly></textarea>
+        <input type="text" id="chatInput">
+        <button id="sendButton">Send</button>
+    </div>
+    <script>
+        var video = document.querySelector("#videoElement");
+        var chatWindow = document.querySelector("#chatWindow");
+        var chatInput = document.querySelector("#chatInput");
+        var sendButton = document.querySelector("#sendButton");
+
+        var ws = new WebSocket('ws://localhost:8765');
+
+        ws.onmessage = function(event) {
+            chatWindow.value += '\n' + event.data;
+        };
+
+        sendButton.onclick = function() {
+            ws.send(chatInput.value);
+            chatInput.value = '';
+        };
+
+        if (navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function (stream) {
+                    video.srcObject = stream;
+                })
+                .catch(function (error) {
+                    console.log("Something went wrong!");
+                });
+        }
+    </script>
+</body>
+</html>
