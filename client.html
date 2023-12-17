@@ -61,47 +61,113 @@
         #sendButton:hover {
             background-color: #005a9e;
         }
+
+        #login {
+            display: flex;
+            flex-direction: column;
+            width: 480px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #fff;
+            margin-bottom: 20px;
+        }
+
+        #login input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+
+        #login button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: #0078d4;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #login button:hover {
+            background-color: #005a9e;
+        }
     </style>
 </head>
 
 <body>
     <h1>Webcam Stream and Chat</h1>
-    <video autoplay="true" id="videoElement"></video>
-    <div id="chat">
-        <textarea id="chatWindow" readonly></textarea>
-        <input type="text" id="chatInput">
-        <button id="sendButton">Send</button>
+    <div id="login">
+        <input type="text" id="nicknameInput" placeholder="Nickname">
+        <input type="password" id="passwordInput" placeholder="Password">
+        <button id="loginButton">Login</button>
+    </div>
+    <div id="app" style="display: none;">
+        <video autoplay="true" id="videoElement"></video>
+        <div id="chat">
+            <textarea id="chatWindow" readonly></textarea>
+            <input type="text" id="chatInput">
+            <button id="sendButton">Send</button>
+        </div>
     </div>
     <script>
         var video = document.querySelector("#videoElement");
         var chatWindow = document.querySelector("#chatWindow");
         var chatInput = document.querySelector("#chatInput");
         var sendButton = document.querySelector("#sendButton");
+        var loginButton = document.querySelector("#loginButton");
+        var nicknameInput = document.querySelector("#nicknameInput");
+        var passwordInput = document.querySelector("#passwordInput");
+        var app = document.querySelector("#app");
 
         var ws = null;
         function connect() {
             ws = new WebSocket('ws://localhost:8765');
-            ws.onopen = function (event) {
-                ws.send('Hello Server!');
-            }
             ws.onclose = function (event) {
+                ws = null;
                 setTimeout(function () {
                     connect();
                 }, 5000);
             }
             ws.onmessage = function (event) {
-                chatWindow.value += '\n' + event.data;
+                var data = JSON.parse(event.data);
+                if (data.type === 'chat') {
+                    chatWindow.value += data.message + '\n';
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                } else if (data.type === 'login') {
+                    if (data.success) {
+                        document.getElementById('login').style.display = 'none';
+                        app.style.display = 'block';
+                    } else {
+                        alert('Login failed. Please try again.');
+                    }
+                } else if (data.type === 'stream') {
+                    video.src = data.stream;
+                }
             };
             ws.onerror = function (event) {
                 console.log("Something went wrong!");
-                ws = null;
+                console.log(event);
             };
         }
         connect();
 
+        loginButton.onclick = function () {
+            if (ws !== null) {
+                ws.send(JSON.stringify({
+                    type: 'login',
+                    nickname: nicknameInput.value,
+                    password: passwordInput.value
+                }));
+            }
+        };
+
         sendButton.onclick = function () {
             if (ws !== null) {
-                ws.send(chatInput.value);
+                ws.send(JSON.stringify({
+                    type: 'chat',
+                    message: chatInput.value
+                }));
                 chatInput.value = '';
             }
         };
@@ -112,7 +178,8 @@
                     video.srcObject = stream;
                 })
                 .catch(function (error) {
-                    console.log("Something went wrong!");
+                    console.log("Can't access webcam");
+                    console.log(error);
                 });
         }
     </script>
