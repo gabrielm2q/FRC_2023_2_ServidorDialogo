@@ -130,14 +130,25 @@
         ws.onmessage = function (event) {
             var data = JSON.parse(event.data);
             if (data.type === 'chat') {
-                chatWindow.value += data.message + '\n';
-                chatWindow.scrollTop = chatWindow.scrollHeight;
+                if (data.success) {
+                    chatWindow.value += data.message + '\n';
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                } else {
+                    alert('Falha no envio da mensagem. ' + data.message);
+                }
             } else if (data.type === 'login') {
                 if (data.success) {
                     document.getElementById('login').style.display = 'none';
+                    // TODO: go to topic selection
                     app.style.display = 'block';
                 } else {
                     alert('Falha no login. ' + data.message);
+                }
+            } else if (data.type === 'topic') {
+                if (data.success) {
+                    app.style.display = 'block';
+                } else {
+                    alert('Falha na alteração do tópico. ' + data.message);
                 }
             } else if (data.type === 'signup') {
                 if (data.success) {
