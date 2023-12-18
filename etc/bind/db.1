@@ -1,0 +1,13 @@
+;
+; BIND reverse data file for 127.0.1.0 network
+;
+$TTL	604800
+@	IN	SOA	projetofrc.com. root.projetofrc.com. (
+			      5		; Serial
+			 604800		; Refresh
+			  86400		; Retry
+			2419200		; Expire
+			 604800 )	; Negative Cache TTL
+;
+	IN	NS	projetofrc.com
+1	IN	PTR	projetofrc.com.
