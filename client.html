@@ -54,9 +54,15 @@
             background-color: #005a9e;
         }
 
-        #videoElement {
+        #videoContainer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
             width: 100%;
-            height: 200px;
+        }
+
+        .videoElement {
+            max-width: 50%;
             border: 1px solid #ddd;
             border-radius: 4px;
             margin-bottom: 20px;
@@ -75,7 +81,7 @@
 </head>
 
 <body>
-    <div id="login" class="box">
+    <div id="login" class="box" style="display: none;">
         <h1>Login</h1>
         <input type="text" id="nicknameInput" placeholder="Usuário" class="input">
         <input type="password" id="passwordInput" placeholder="Senha" class="input">
@@ -90,9 +96,9 @@
         <button id="submitCreateAccountButton" class="button">Criar conta</button>
         <button id="cancelCreateAccountButton" class="button">Cancelar</button>
     </div>
-    <div id="app" class="box" style="display: none;">
+    <div id="app" class="box">
         <h1>Chat</h1>
-        <video autoplay="true" id="videoElement"></video>
+        <div autoplay="true" id="videoContainer"></div>
         <div id="chat">
             <textarea id="chatWindow" readonly class="input"></textarea>
             <input type="text" id="chatInput" class="input">
@@ -188,10 +194,30 @@
         }
     };
 
+    function addVideoStream(stream, streamId) {
+        var newVideo = document.createElement("video");
+        newVideo.srcObject = stream;
+        newVideo.id = 'video-' + streamId;
+        newVideo.autoplay = true;
+        newVideo.playsinline = true;
+        newVideo.className = 'videoElement';
+        document.getElementById("videoContainer").appendChild(newVideo);
+
+        adjustVideoLayout();
+    }
+
+    function adjustVideoLayout() {
+        var videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");
+        var percentage = 100 / Math.ceil(Math.sqrt(videos.length));
+        for (var i = 0; i < videos.length; i++) {
+            videos[i].style.maxWidth = percentage + '%';
+        }
+    }
+
     if (navigator.mediaDevices.getUserMedia) {
         navigator.mediaDevices.getUserMedia({ video: true })
             .then(function (stream) {
-                video.srcObject = stream;
+                addVideoStream(stream, 'local');
             })
             .catch(function (error) {
                 console.log("Can't access webcam");
