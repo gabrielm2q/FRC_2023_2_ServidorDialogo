@@ -99,6 +99,7 @@
             <button id="chatSendButton" class="button">Send</button>
         </div>
     </div>
+    <div id="connectionStatus" style="display: none;">Conexão perdida. Tentando reconectar...</div>
 </body>
 <script>
     var video = document.querySelector("#videoElement");
@@ -118,11 +119,22 @@
     var newPasswordConfirmInput = document.querySelector("#newPasswordConfirmInput");
     var createAccount = document.querySelector("#createAccount");
 
+    var connectionStatus = document.querySelector("#connectionStatus");
+
     var ws = null;
     function connect() {
         ws = new WebSocket('ws://localhost:8765');
+        ws.onopen = function (event) {
+            document.getElementById('login').style.display = 'block';
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('createAccount').style.display = 'none';
+            connectionStatus.style.display = "none";
+        };
         ws.onclose = function (event) {
-            ws = null;
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('createAccount').style.display = 'none';
+            connectionStatus.style.display = "block";
             setTimeout(function () {
                 connect();
             }, 5000);
@@ -162,8 +174,7 @@
             }
         };
         ws.onerror = function (event) {
-            console.log("Something went wrong!");
-            console.log(event);
+            ws.close();
         };
     }
     connect();
@@ -200,11 +211,19 @@
     };
 
     if (navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ video: true })
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(function (stream) {
                 video.srcObject = stream;
             })
             .catch(function (error) {
+                // TODO: remove this
+                video.src = "https://media.w3.org/2010/05/sintel/trailer.mp4"
+                video.volume = 0.0;
+                video.addEventListener('timeupdate', function () {
+                    if (video.currentTime > 30) {
+                        video.currentTime = 0;
+                    }
+                });
                 console.log("Can't access webcam");
                 console.log(error);
             });
