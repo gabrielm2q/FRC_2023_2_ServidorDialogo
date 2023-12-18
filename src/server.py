@@ -1,66 +1,46 @@
-import socket, cv2
-import numpy as np
-import threading as thread
+import asyncio
+import json
 
-# tcp and ipv4 address family
-tcp = socket.SOCK_STREAM
-afm = socket.AF_INET
+from handler.login_handler import login_handler
+from handler.logout_handler import logout_handler
+from handler.signup_handler import signup_handler
 
-# user a
-usera_ip = socket.gethostbyname(socket.gethostname())
-usera_port = 2000
-
-# creating socket
-sa = socket.socket(afm, tcp)
-sb = socket.socket(afm, tcp)
-
-# Binding ports
-sa.bind((usera_ip, usera_port))
-
-# listening port and creating session
-sa.listen()
-session, addr = sa.accept()
-
-print(addr)
-
-# connecting to userb
-sb.connect((usera_ip, 2001))
+import websockets
 
 
-def receive():
+async def main_handler(websocket: websockets.WebSocketServerProtocol):
+    print(f"New connection from {websocket.remote_address}")
     while True:
-        en_photo = session.recv(921600)
-        image_arr = np.frombuffer(en_photo, np.uint8)
-        image = cv2.imdecode(image_arr, cv2.IMREAD_COLOR)
-        if type(image) is type(None):
-            pass
-        else:
-            cv2.imshow("Video stream", image)
-            if cv2.waitKey(10) == 13:
-                break
+        try:
+            data = json.loads(await websocket.recv())
+            data_type = data.pop("type", None)
+            if data_type == "login":
+                data["remote_address"] = websocket.remote_address
+                response = await login_handler(data)
+            elif data_type == "signup":
+                response = await signup_handler(data)
+            else:
+                print("Unknown message type")
+                continue
 
-    cv2.destroyAllWindows()
-    exit()
-
-
-def send():
-    capture = cv2.VideoCapture(0)
-
-    while True:
-        ret, photo = capture.read()
-        if ret == True:
-            en_photo = cv2.imencode(".jpg", photo)[1].tobytes()
-            sb.sendall(en_photo)
-        else:
-            pass
-
-    exit()
+            await websocket.send(json.dumps({"type": data_type, **response}))
+        except websockets.exceptions.ConnectionClosed:
+            print(f"Connection closed from {websocket.remote_address}")
+            await logout_handler(websocket.remote_address)
+            break
+        except json.JSONDecodeError:
+            # TODO: maybe send error message
+            print("Invalid JSON")
+        except Exception as e:
+            print(f"Error: {e}")
 
 
-# send and receive threads
-send_thread = thread.Thread(target=send)
-recv_thread = thread.Thread(target=receive)
+async def main():
+    host, port = "localhost", 8765
+    print(f"Listening on ws://{host}:{port}")
+    async with websockets.serve(main_handler, host, port):
+        await asyncio.Future()
 
-# starting threads
-send_thread.start()
-recv_thread.start()
+
+if __name__ == "__main__":
+    asyncio.run(main())

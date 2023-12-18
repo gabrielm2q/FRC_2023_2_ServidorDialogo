@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Webcam Stream and Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        .box {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            margin-bottom: 20px;
+            width: 50%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: #0078d4;
+            color: #fff;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .button:hover {
+            background-color: #005a9e;
+        }
+
+        #videoElement {
+            width: 100%;
+            height: 200px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        #chatWindow {
+            height: 200px;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            padding: 10px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="login" class="box">
+        <h1>Login</h1>
+        <input type="text" id="nicknameInput" placeholder="Usuário" class="input">
+        <input type="password" id="passwordInput" placeholder="Senha" class="input">
+        <button id="loginButton" class="button">Login</button>
+        <button id="createAccountButton" class="button">Criar conta</button>
+    </div>
+    <div id="createAccount" class="box" style="display: none;">
+        <h1>Criar conta</h1>
+        <input type="text" id="newNicknameInput" placeholder="Usuário" class="input">
+        <input type="password" id="newPasswordInput" placeholder="Senha" class="input">
+        <input type="password" id="newPasswordConfirmInput" placeholder="Confirmar senha" class="input">
+        <button id="submitCreateAccountButton" class="button">Criar conta</button>
+        <button id="cancelCreateAccountButton" class="button">Cancelar</button>
+    </div>
+    <div id="app" class="box" style="display: none;">
+        <h1>Chat</h1>
+        <video autoplay="true" id="videoElement"></video>
+        <div id="chat">
+            <textarea id="chatWindow" readonly class="input"></textarea>
+            <input type="text" id="chatInput" class="input">
+            <button id="chatSendButton" class="button">Send</button>
+        </div>
+    </div>
+</body>
+<script>
+    var video = document.querySelector("#videoElement");
+    var chatWindow = document.querySelector("#chatWindow");
+    var chatInput = document.querySelector("#chatInput");
+    var chatSendButton = document.querySelector("#chatSendButton");
+    var loginButton = document.querySelector("#loginButton");
+    var nicknameInput = document.querySelector("#nicknameInput");
+    var passwordInput = document.querySelector("#passwordInput");
+    var app = document.querySelector("#app");
+
+    var createAccountButton = document.querySelector("#createAccountButton");
+    var submitCreateAccountButton = document.querySelector("#submitCreateAccountButton");
+    var cancelCreateAccountButton = document.querySelector("#cancelCreateAccountButton");
+    var newNicknameInput = document.querySelector("#newNicknameInput");
+    var newPasswordInput = document.querySelector("#newPasswordInput");
+    var newPasswordConfirmInput = document.querySelector("#newPasswordConfirmInput");
+    var createAccount = document.querySelector("#createAccount");
+
+    var ws = null;
+    function connect() {
+        ws = new WebSocket('ws://localhost:8765');
+        ws.onclose = function (event) {
+            ws = null;
+            setTimeout(function () {
+                connect();
+            }, 5000);
+        }
+        ws.onmessage = function (event) {
+            var data = JSON.parse(event.data);
+            if (data.type === 'chat') {
+                chatWindow.value += data.message + '\n';
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            } else if (data.type === 'login') {
+                if (data.success) {
+                    document.getElementById('login').style.display = 'none';
+                    app.style.display = 'block';
+                } else {
+                    alert('Falha no login. ' + data.message);
+                }
+            } else if (data.type === 'signup') {
+                if (data.success) {
+                    document.getElementById('createAccount').style.display = 'none';
+                    document.getElementById('login').style.display = 'block';
+                } else {
+                    alert('Falha no cadastro. ' + data.message);
+                }
+            } else if (data.type === 'stream') {
+                video.src = data.stream;
+            }
+        };
+        ws.onerror = function (event) {
+            console.log("Something went wrong!");
+            console.log(event);
+        };
+    }
+    connect();
+
+    loginButton.onclick = function () {
+        if (nicknameInput.value === '') {
+            alert('Usuário não pode ser vazio.');
+            return;
+        }
+        if (passwordInput.value === '') {
+            alert('Senha não pode ser vazia.');
+            return;
+        }
+        if (ws !== null) {
+            ws.send(JSON.stringify({
+                type: 'login',
+                nickname: nicknameInput.value,
+                password: passwordInput.value
+            }));
+        }
+    };
+
+    chatSendButton.onclick = function () {
+        if (chatInput.value === '') {
+            return;
+        }
+        if (ws !== null) {
+            ws.send(JSON.stringify({
+                type: 'chat',
+                message: chatInput.value
+            }));
+            chatInput.value = '';
+        }
+    };
+
+    if (navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function (stream) {
+                video.srcObject = stream;
+            })
+            .catch(function (error) {
+                console.log("Can't access webcam");
+                console.log(error);
+            });
+    }
+
+    createAccountButton.onclick = function () {
+        document.getElementById('login').style.display = 'none';
+        createAccount.style.display = 'block';
+    };
+
+    submitCreateAccountButton.onclick = function () {
+        if (newNicknameInput.value === '') {
+            alert('Usuário não pode ser vazio.');
+            return;
+        }
+        if (newPasswordInput.value === '') {
+            alert('Senha não pode ser vazia.');
+            return;
+        }
+        if (newPasswordInput.value !== newPasswordConfirmInput.value) {
+            alert('Senha e confirmação de senha não conferem.');
+            return;
+        }
+
+        if (ws !== null) {
+            ws.send(JSON.stringify({
+                type: 'signup',
+                nickname: newNicknameInput.value,
+                password: newPasswordInput.value
+            }));
+        }
+    };
+
+    cancelCreateAccountButton.onclick = function () {
+        createAccount.style.display = 'none';
+        document.getElementById('login').style.display = 'block';
+    };
+</script>
+</body>
+
+</html>
