@@ -1,32 +1,37 @@
-from enum import Enum, auto
+from dataclasses import dataclass
+
+from websockets import WebSocketServerProtocol
 
 
-class UserState(Enum):
-    ONLINE = auto()
-    BUSY = auto()
-    OFFLINE = auto()
+@dataclass(slots=True)
+class UserInfo:
+    nickname: str
+    websocket: WebSocketServerProtocol
+    topic: str | None = None
 
 
-class UserStateRepository:
-    users: dict[str, UserState] = {}
-    remote_addresses: dict[tuple[str, int], str] = {}
-
-    @classmethod
-    def set_state(
-        cls, nickname: str, address: tuple[str, int], state: UserState
-    ) -> None:
-        cls.remote_addresses[address] = nickname
-        cls.users[nickname] = state
+class AllUserInfos:
+    _remote_addresses: dict[tuple[str, int], UserInfo] = {}
+    _topics: dict[str, tuple[str, int]]
 
     @classmethod
-    def set_offline(cls, address: tuple[str, int]) -> None:
-        nickname = cls.remote_addresses.pop(address, "")
-        cls.users.pop(nickname, None)
+    def add_user(cls, address: tuple[str, int], info: UserInfo) -> None:
+        cls._remote_addresses[address] = info
 
     @classmethod
-    def get_state_by_nickname(cls, nickname: str) -> UserState:
-        return cls.users.get(nickname, UserState.OFFLINE)
+    def remove_user(cls, address: tuple[str, int]) -> None:
+        cls._remote_addresses.pop(address, None)
 
     @classmethod
-    def get_state_by_address(cls, address: tuple[str, int]) -> UserState:
-        return cls.get_state_by_nickname(cls.remote_addresses.get(address, ""))
+    def get_user(cls, address: tuple[str, int]) -> UserInfo | None:
+        return cls._remote_addresses.get(address, None)
+
+    @classmethod
+    def get_other_participants(cls, user: UserInfo | None) -> list[UserInfo]:
+        if not user or not user.topic:
+            return []
+        return [
+            info
+            for info in cls._remote_addresses.values()
+            if info.topic == user.topic and info != user
+        ]
