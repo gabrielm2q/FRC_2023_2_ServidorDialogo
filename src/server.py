@@ -4,6 +4,8 @@ import json
 from handler.login_handler import login_handler
 from handler.logout_handler import logout_handler
 from handler.signup_handler import signup_handler
+from handler.chat_handler import chat_handler
+from handler.topic_handler import topic_handler
 
 import websockets
 
@@ -13,17 +15,20 @@ async def main_handler(websocket: websockets.WebSocketServerProtocol):
     while True:
         try:
             data = json.loads(await websocket.recv())
-            data_type = data.pop("type", None)
+            data["websocket"] = websocket
+            data["remote_address"] = websocket.remote_address
+            data_type = data.get("type", None)
             if data_type == "login":
-                data["remote_address"] = websocket.remote_address
-                response = await login_handler(data)
+                await login_handler(data)
             elif data_type == "signup":
-                response = await signup_handler(data)
+                await signup_handler(data)
+            elif data_type == "chat":
+                await chat_handler(data)
+            elif data_type == "topic":
+                await topic_handler(data)
             else:
                 print("Unknown message type")
                 continue
-
-            await websocket.send(json.dumps({"type": data_type, **response}))
         except websockets.exceptions.ConnectionClosed:
             print(f"Connection closed from {websocket.remote_address}")
             await logout_handler(websocket.remote_address)
