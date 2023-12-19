@@ -113,8 +113,9 @@
         <div id="chat">
             <textarea id="chatWindow" readonly class="input"></textarea>
             <input type="text" id="chatInput" class="input">
-            <button id="chatSendButton" class="button">Send</button>
+            <button id="chatSendButton" class="button">Enviar</button>
         </div>
+        <button id="backToTopicsButton" class="button" onclick="showSection('topic')" style="background-color: red;">Voltar para seleção de tópicos</button>
     </div>
     <div id="topic" class="box" style="display: none;">
         <h1>Tipo de Conversa</h2>
@@ -172,6 +173,8 @@
             if (getThemeMode() !== 'chat') {
                 addWebcam();
             }
+        } else if (sectionId === 'topic') {
+            clearVideoStreams();
         }
     }
 
@@ -290,6 +293,13 @@
         document.getElementById("videoContainer").appendChild(newVideo);
 
         adjustVideoLayout();
+    }
+
+    function clearVideoStreams() {
+        var videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");
+        while (videos.length > 0) {
+            videos[0].parentNode.removeChild(videos[0]);
+        }
     }
 
     function getThemeMode() {
