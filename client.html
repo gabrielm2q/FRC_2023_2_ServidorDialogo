@@ -161,6 +161,18 @@
         for (let i = 0; i < sections.length; i++) {
             document.getElementById(sections[i]).style.display = (sections[i] === sectionId ? 'block' : 'none')
         }
+
+        if (sectionId === 'app') {
+            if (getThemeMode() === 'video') {
+                document.getElementById('chat').style.display = 'none';
+            } else {
+                document.getElementById('chat').style.display = 'block';
+            }
+
+            if (getThemeMode() !== 'chat') {
+                addWebcam();
+            }
+        }
     }
 
     function selectOption(div) {
@@ -248,6 +260,16 @@
         }
     };
 
+    function addWebcam() {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(function (stream) {
+                addVideoStream(stream, 'me');
+            })
+            .catch(function (error) {
+                addVideoStream(null, 'me');
+            });
+    }
+
     function addVideoStream(stream, streamId) {
         var newVideo = document.createElement("video");
         newVideo.srcObject = stream;
@@ -255,26 +277,17 @@
         newVideo.autoplay = true;
         newVideo.playsinline = true;
         newVideo.className = 'videoElement';
-        document.getElementById("videoContainer").appendChild(newVideo);
-
-        if (streamId === 'me') {
-            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-                .then(function (stream) {
-                    addVideoStream(stream, 'local');
-                })
-                .catch(function (error) {
-                    // TODO: remove this
-                    video.src = "https://media.w3.org/2010/05/sintel/trailer.mp4"
-                    video.volume = 0.0;
-                    video.addEventListener('timeupdate', function () {
-                        if (video.currentTime > 30) {
-                            video.currentTime = 0;
-                        }
-                    });
-                    console.log("Can't access webcam");
-                    console.log(error);
-                });
+        if (stream === null) {
+            // TODO: add default image
+            newVideo.src = "https://media.w3.org/2010/05/sintel/trailer.mp4"
+            newVideo.volume = 0.0;
+            newVideo.addEventListener('timeupdate', function () {
+                if (newVideo.currentTime > 30) {
+                    newVideo.currentTime = 0;
+                }
+            });
         }
+        document.getElementById("videoContainer").appendChild(newVideo);
 
         adjustVideoLayout();
     }
