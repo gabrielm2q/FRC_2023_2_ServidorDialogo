@@ -25,6 +25,17 @@
             width: 50%;
         }
 
+        .selection {
+            height: 20px;
+            padding: 3px;
+            border: none;
+            border-radius: 4px;
+            background-color: #0078d4;
+            color: #fff;
+            cursor: pointer;
+            margin-bottom: 5px;
+        }
+
         h1 {
             text-align: center;
             color: #333;
@@ -96,7 +107,7 @@
         <button id="submitCreateAccountButton" class="button">Criar conta</button>
         <button id="cancelCreateAccountButton" class="button">Cancelar</button>
     </div>
-    <div id="app" class="box">
+    <div id="app" class="box" style="display: none;">
         <h1>Chat</h1>
         <div autoplay="true" id="videoContainer"></div>
         <div id="chat">
@@ -105,17 +116,36 @@
             <button id="chatSendButton" class="button">Send</button>
         </div>
     </div>
+    <div id="topic" class="box" style="display: none;">
+        <h1>Tipo de Conversa</h2>
+            <div class="selection" onclick="selectOption(this)">
+                <input type="radio" id="theme-chat" name="conversationType" value="chat">
+                <label for="chat">Apenas Chat</label><br><br>
+            </div>
+            <div class="selection" onclick="selectOption(this)">
+                <input type="radio" id="theme-video" name="conversationType" value="video">
+                <label for="video">Apenas Vídeo</label><br><br>
+            </div>
+            <div class="selection" onclick="selectOption(this)">
+                <input type="radio" id="theme-both" name="conversationType" value="both">
+                <label for="both">Vídeo e Chat</label>
+            </div>
+
+            <h1>Escolha um Tema para Conversar</h1>
+            <button class="button" onclick="selectTheme('Filmes')">Filmes</button>
+            <button class="button" onclick="selectTheme('Estudos')">Estudos</button>
+            <button class="button" onclick="selectTheme('Futebol')">Futebol</button>
+            <button class="button" onclick="selectTheme('Músicas')">Músicas</button>
+    </div>
     <div id="connectionStatus" style="display: none;">Conexão perdida. Tentando reconectar...</div>
 </body>
 <script>
-    var video = document.querySelector("#videoElement");
     var chatWindow = document.querySelector("#chatWindow");
     var chatInput = document.querySelector("#chatInput");
     var chatSendButton = document.querySelector("#chatSendButton");
     var loginButton = document.querySelector("#loginButton");
     var nicknameInput = document.querySelector("#nicknameInput");
     var passwordInput = document.querySelector("#passwordInput");
-    var app = document.querySelector("#app");
 
     var createAccountButton = document.querySelector("#createAccountButton");
     var submitCreateAccountButton = document.querySelector("#submitCreateAccountButton");
@@ -125,22 +155,27 @@
     var newPasswordConfirmInput = document.querySelector("#newPasswordConfirmInput");
     var createAccount = document.querySelector("#createAccount");
 
-    var connectionStatus = document.querySelector("#connectionStatus");
+    function showSection(sectionId) {
+        var sections = ['login', 'app', 'createAccount', 'topic', 'connectionStatus'];
+
+        for (let i = 0; i < sections.length; i++) {
+            document.getElementById(sections[i]).style.display = (sections[i] === sectionId ? 'block' : 'none')
+        }
+    }
+
+    function selectOption(div) {
+        var radioButton = div.querySelector('input[type=radio]');
+        radioButton.click();
+    }
 
     var ws = null;
     function connect() {
         ws = new WebSocket('ws://localhost:8765');
         ws.onopen = function (event) {
-            document.getElementById('login').style.display = 'block';
-            document.getElementById('app').style.display = 'none';
-            document.getElementById('createAccount').style.display = 'none';
-            connectionStatus.style.display = "none";
+            showSection('login');
         };
         ws.onclose = function (event) {
-            document.getElementById('login').style.display = 'none';
-            document.getElementById('app').style.display = 'none';
-            document.getElementById('createAccount').style.display = 'none';
-            connectionStatus.style.display = "block";
+            showSection('connectionStatus');
             setTimeout(function () {
                 connect();
             }, 5000);
@@ -156,27 +191,24 @@
                 }
             } else if (data.type === 'login') {
                 if (data.success) {
-                    document.getElementById('login').style.display = 'none';
-                    // TODO: go to topic selection
-                    app.style.display = 'block';
+                    showSection('topic');
                 } else {
                     alert('Falha no login. ' + data.message);
                 }
             } else if (data.type === 'topic') {
                 if (data.success) {
-                    app.style.display = 'block';
+                    showSection('app');
                 } else {
                     alert('Falha na alteração do tópico. ' + data.message);
                 }
             } else if (data.type === 'signup') {
                 if (data.success) {
-                    document.getElementById('createAccount').style.display = 'none';
-                    document.getElementById('login').style.display = 'block';
+                    showSection('login');
                 } else {
                     alert('Falha no cadastro. ' + data.message);
                 }
             } else if (data.type === 'stream') {
-                video.src = data.stream;
+                // TODO
             }
         };
         ws.onerror = function (event) {
@@ -225,7 +257,36 @@
         newVideo.className = 'videoElement';
         document.getElementById("videoContainer").appendChild(newVideo);
 
+        if (streamId === 'me') {
+            navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                .then(function (stream) {
+                    addVideoStream(stream, 'local');
+                })
+                .catch(function (error) {
+                    // TODO: remove this
+                    video.src = "https://media.w3.org/2010/05/sintel/trailer.mp4"
+                    video.volume = 0.0;
+                    video.addEventListener('timeupdate', function () {
+                        if (video.currentTime > 30) {
+                            video.currentTime = 0;
+                        }
+                    });
+                    console.log("Can't access webcam");
+                    console.log(error);
+                });
+        }
+
         adjustVideoLayout();
+    }
+
+    function getThemeMode() {
+        if (document.getElementById('theme-chat').checked) {
+            return 'chat';
+        } else if (document.getElementById('theme-video').checked) {
+            return 'video';
+        } else if (document.getElementById('theme-both').checked) {
+            return 'both';
+        }
     }
 
     function adjustVideoLayout() {
@@ -236,28 +297,17 @@
         }
     }
 
-    if (navigator.mediaDevices.getUserMedia) {
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then(function (stream) {
-                addVideoStream(stream, 'local');
-            })
-            .catch(function (error) {
-                // TODO: remove this
-                video.src = "https://media.w3.org/2010/05/sintel/trailer.mp4"
-                video.volume = 0.0;
-                video.addEventListener('timeupdate', function () {
-                    if (video.currentTime > 30) {
-                        video.currentTime = 0;
-                    }
-                });
-                console.log("Can't access webcam");
-                console.log(error);
-            });
+    function selectTheme(theme) {
+        if (ws !== null) {
+            ws.send(JSON.stringify({
+                type: 'topic',
+                topic: theme + '-' + getThemeMode(),
+            }));
+        }
     }
 
     createAccountButton.onclick = function () {
-        document.getElementById('login').style.display = 'none';
-        createAccount.style.display = 'block';
+        showSelection('createAccount');
     };
 
     submitCreateAccountButton.onclick = function () {
