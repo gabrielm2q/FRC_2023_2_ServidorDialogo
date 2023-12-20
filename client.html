@@ -18,6 +18,16 @@
             padding: 0;
         }
 
+        .userStatus {
+            display: block;
+            color: #333;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
         .box {
             background-color: #fff;
             border: 1px solid #ddd;
@@ -121,25 +131,28 @@
             para seleção de tópicos</button>
     </div>
     <div id="topic" class="box" style="display: none;">
-        <h1>Tipo de Conversa</h2>
-            <div class="selection" onclick="selectOption(this)">
-                <input type="radio" id="theme-chat" name="conversationType" value="chat" checked>
-                <label for="chat">Apenas Chat</label><br><br>
-            </div>
-            <div class="selection" onclick="selectOption(this)">
-                <input type="radio" id="theme-video" name="conversationType" value="video">
-                <label for="video">Apenas Vídeo</label><br><br>
-            </div>
-            <div class="selection" onclick="selectOption(this)">
-                <input type="radio" id="theme-both" name="conversationType" value="both">
-                <label for="both">Vídeo e Chat</label>
-            </div>
+        <h1>Tipo de Conversa</h1>
+        <div class="selection" onclick="selectOption(this)">
+            <input type="radio" id="theme-chat" name="conversationType" value="chat" checked>
+            <label for="chat">Apenas Chat</label><br><br>
+        </div>
+        <div class="selection" onclick="selectOption(this)">
+            <input type="radio" id="theme-video" name="conversationType" value="video">
+            <label for="video">Apenas Vídeo</label><br><br>
+        </div>
+        <div class="selection" onclick="selectOption(this)">
+            <input type="radio" id="theme-both" name="conversationType" value="both">
+            <label for="both">Vídeo e Chat</label>
+        </div>
 
-            <h1>Escolha um Tema para Conversar</h1>
-            <button class="button" onclick="selectTheme('Filmes')">Filmes</button>
-            <button class="button" onclick="selectTheme('Estudos')">Estudos</button>
-            <button class="button" onclick="selectTheme('Futebol')">Futebol</button>
-            <button class="button" onclick="selectTheme('Músicas')">Músicas</button>
+        <h1>Escolha um Tema para Conversar</h1>
+        <button class="button" onclick="selectTheme('Filmes')">Filmes</button>
+        <button class="button" onclick="selectTheme('Estudos')">Estudos</button>
+        <button class="button" onclick="selectTheme('Futebol')">Futebol</button>
+        <button class="button" onclick="selectTheme('Músicas')">Músicas</button>
+
+        <h1>Usuários</h1>
+        <div id="users"></div>
     </div>
     <div id="connectionStatus" style="display: none;">Conexão perdida. Tentando reconectar...</div>
 </body>
@@ -159,7 +172,39 @@
     var newPasswordConfirmInput = document.querySelector("#newPasswordConfirmInput");
     var createAccount = document.querySelector("#createAccount");
 
-    var mediaRecorder = null;
+    var userStatus = {};
+
+    function renderUserStatus() {
+        var users = document.getElementById("users");
+        while (users.firstChild) {
+            users.removeChild(users.firstChild);
+        }
+
+        console.log(userStatus);
+        for (var key in userStatus) {
+            var user = document.createElement("span");
+            user.className = 'userStatus';
+
+            var icon;
+            var statusText;
+            if (userStatus[key].online) {
+                icon = "🟢";
+                statusText = "Online";
+            } else {
+                icon = "🔴";
+                statusText = "Offline";
+            }
+
+            if (userStatus[key].topic) {
+                icon = "🔵";
+                statusText = "Ocupado no tópico: " + userStatus[key].topic;
+            }
+
+            user.innerHTML = icon + ' ' + key + ' - ' + statusText;
+
+            users.appendChild(user);
+        }
+    }
 
     function showSection(sectionId) {
         var sections = ['login', 'app', 'createAccount', 'topic', 'connectionStatus'];
@@ -257,6 +302,14 @@
                 if (isVideoOn()) {
                     addVideoStream(null, 'video-' + data.nickname);
                 }
+            } else if (data.type === 'user_status') {
+                data.users.forEach(function (user) {
+                    userStatus[user.nickname] = {
+                        online: user.online,
+                        topic: user.topic
+                    };
+                });
+                renderUserStatus();
             }
         };
         ws.onerror = function (event) {
@@ -347,16 +400,16 @@
 
     function getThemeMode() {
         if (document.getElementById('theme-chat').checked) {
-            return 'chat';
+            return 'Apenas Chat';
         } else if (document.getElementById('theme-video').checked) {
-            return 'video';
+            return 'Apenas Vídeo';
         } else if (document.getElementById('theme-both').checked) {
-            return 'both';
+            return 'Vídeo e Chat';
         }
     }
 
-    function isChatOn() { return getThemeMode() !== 'video'; }
-    function isVideoOn() { return getThemeMode() !== 'chat'; }
+    function isChatOn() { return getThemeMode() !== 'Apenas Vídeo'; }
+    function isVideoOn() { return getThemeMode() !== 'Apenas Chat'; }
 
     function adjustVideoLayout() {
         var videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");
@@ -370,7 +423,7 @@
         if (ws !== null) {
             ws.send(JSON.stringify({
                 type: 'topic',
-                topic: theme + '-' + getThemeMode(),
+                topic: theme + ' (' + getThemeMode() + ')',
             }));
         }
     }

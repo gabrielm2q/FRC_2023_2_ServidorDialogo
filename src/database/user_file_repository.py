@@ -50,3 +50,6 @@ class UserFileRepository:
         if not user or not pwd_context.verify(password, user.password):
             return False
         return True
+
+    async def get_all(self) -> list[User]:
+        return list((await self._read_all()).values())

@@ -27,7 +27,7 @@ class AllUserInfos:
         return cls._remote_addresses.get(address, None)
 
     @classmethod
-    def get_other_participants(cls, user: UserInfo | None) -> list[UserInfo]:
+    def get_other_participants_same_topic(cls, user: UserInfo | None) -> list[UserInfo]:
         if not user or not user.topic:
             return []
         return [
@@ -35,3 +35,7 @@ class AllUserInfos:
             for info in cls._remote_addresses.values()
             if info.topic == user.topic and info != user
         ]
+
+    @classmethod
+    def get_other_users(cls, user: UserInfo | None) -> list[UserInfo]:
+        return [info for info in cls._remote_addresses.values() if info != user]

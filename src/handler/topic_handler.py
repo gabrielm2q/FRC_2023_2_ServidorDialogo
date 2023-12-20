@@ -29,12 +29,28 @@ async def topic_handler(data: TopicData) -> None:
     )
     await data["websocket"].send(json.dumps(response))
 
-    for info in AllUserInfos.get_other_participants(user):
+    for info in AllUserInfos.get_other_participants_same_topic(user):
         await info.websocket.send(
             json.dumps(
                 {
                     "type": "enter_call",
                     "nickname": user.nickname,
+                }
+            )
+        )
+
+    for info in AllUserInfos.get_other_users(user):
+        await info.websocket.send(
+            json.dumps(
+                {
+                    "type": "user_status",
+                    "users": [
+                        {
+                            "nickname": user.nickname,
+                            "topic": user.topic,
+                            "online": True,
+                        }
+                    ],
                 }
             )
         )

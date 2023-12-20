@@ -30,7 +30,7 @@ async def chat_handler(data: ChatData) -> None:
         )
         return await data["websocket"].send(json.dumps(response))
 
-    for info in AllUserInfos.get_other_participants(user):
+    for info in AllUserInfos.get_other_participants_same_topic(user):
         response = HandlerResponse(
             type=data["type"],
             success=True,
