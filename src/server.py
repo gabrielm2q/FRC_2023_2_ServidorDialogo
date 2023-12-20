@@ -39,7 +39,6 @@ async def main_handler(websocket: websockets.WebSocketServerProtocol):
             await logout_handler(websocket.remote_address)
             break
         except json.JSONDecodeError:
-            # TODO: maybe send error message
             print("Invalid JSON")
         except Exception as e:
             print(f"Error: {e}")

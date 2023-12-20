@@ -28,3 +28,13 @@ async def topic_handler(data: TopicData) -> None:
         type=data["type"], success=True, message=f"Entrou no tópico {data['topic']}"
     )
     await data["websocket"].send(json.dumps(response))
+
+    for info in AllUserInfos.get_other_participants(user):
+        await info.websocket.send(
+            json.dumps(
+                {
+                    "type": "enter_call",
+                    "nickname": user.nickname,
+                }
+            )
+        )

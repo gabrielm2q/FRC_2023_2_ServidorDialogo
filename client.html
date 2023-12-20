@@ -123,7 +123,7 @@
     <div id="topic" class="box" style="display: none;">
         <h1>Tipo de Conversa</h2>
             <div class="selection" onclick="selectOption(this)">
-                <input type="radio" id="theme-chat" name="conversationType" value="chat">
+                <input type="radio" id="theme-chat" name="conversationType" value="chat" checked>
                 <label for="chat">Apenas Chat</label><br><br>
             </div>
             <div class="selection" onclick="selectOption(this)">
@@ -160,9 +160,6 @@
     var createAccount = document.querySelector("#createAccount");
 
     var mediaRecorder = null;
-    var videoTags = {};
-    var videoSources = {};
-    var videoBuffers = {};
 
     function showSection(sectionId) {
         var sections = ['login', 'app', 'createAccount', 'topic', 'connectionStatus'];
@@ -182,7 +179,7 @@
                 addWebcam();
             }
         } else if (sectionId === 'topic') {
-            clearVideoStreams();
+            clearVideoStreamsAndChat();
         }
     }
 
@@ -208,7 +205,7 @@
         };
         ws.onclose = function (event) {
             showSection('connectionStatus');
-            clearVideoStreams();
+            clearVideoStreamsAndChat();
             setTimeout(function () {
                 connect();
             }, 5000);
@@ -242,12 +239,7 @@
                 }
             } else if (data.type === 'stream') {
                 if (data.success) {
-                    const videoId = 'video-' + data.from;
-                    if (videoId in videoTags) {
-                        setVideoSrc(videoTags[videoId], data.data);
-                    } else {
-                        addVideoStream(data.data, data.from);
-                    }
+                    // didn't work :(
                 }
             } else if (data.type === 'quit_call') {
                 if (isVideoOn()) {
@@ -256,6 +248,14 @@
                 if (isChatOn()) {
                     chatWindow.value += data.nickname + ' saiu da conversa.\n';
                     chatWindow.scrollTop = chatWindow.scrollHeight;
+                }
+            } else if (data.type === 'enter_call') {
+                if (isChatOn()) {
+                    chatWindow.value += data.nickname + ' entrou na conversa.\n';
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                }
+                if (isVideoOn()) {
+                    addVideoStream(null, 'video-' + data.nickname);
                 }
             }
         };
@@ -299,112 +299,47 @@
     function addWebcam() {
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(function (stream) {
-                // TODO: currently it doesn't work with stream
                 addVideoStream(stream, 'me');
             })
             .catch(function (error) {
-                addVideoStream(null, 'me');
+                alert('Falha ao acessar a webcam. ' + error);
+                backToTopic();
             });
     }
 
-    function setVideoSrc(video, base64data) {
-        var mediaSource = new MediaSource();
-        mediaSource.addEventListener('sourceopen', function () {
-            console.log(mediaSource);
-            var sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
-            videoBuffers[video.id] = sourceBuffer;
-
-            sourceBuffer.addEventListener('updateend', function () {
-                if (!sourceBuffer.updating && mediaSource.readyState === 'open') {
-                    // mediaSource.endOfStream();
-                }
-            });
-
-            if (base64data !== null)
-                sourceBuffer.appendBuffer(new Uint8Array(atob(base64data).split('').map(function (c) {
-                    return c.charCodeAt(0);
-                })));
-            else {
-                fetch('http://localhost:8000/video.webm')
-                    .then(function (response) {
-                        return response.arrayBuffer();
-                    })
-                    .then(function (arrayBuffer) {
-                        sourceBuffer.appendBuffer(arrayBuffer);
-                    })
-            }
-        });
-        video.src = URL.createObjectURL(mediaSource);
-    }
-    function addVideoStream(base64URLdata, streamId) {
+    function addVideoStream(stream, streamId) {
         var newVideo = document.createElement("video");
         newVideo.id = 'video-' + streamId;
-        setVideoSrc(newVideo, base64URLdata, streamId);
+        newVideo.srcObject = stream;
         newVideo.autoplay = true;
         newVideo.loop = true;
         newVideo.playsinline = true;
         newVideo.className = 'videoElement';
         newVideo.captureStream = newVideo.captureStream || newVideo.mozCaptureStream;
-        newVideo.play().then(function () {
-            mediaRecorder = new MediaRecorder(newVideo.captureStream(30), {
-                mimeType: 'video/webm'
-            });
-            mediaRecorder.ondataavailable = function (e) {
-                if (e.data.size === 0) {
-                    return;
-                }
 
-                var sourceBuffer = videoBuffers[newVideo.id];
-                if (sourceBuffer.updating || sourceBuffer.buffered.length > 0)
-                    return;
-
-                var reader = new FileReader();
-                reader.onload = function () {
-                    sourceBuffer.appendBuffer(new Uint8Array(reader.result));
-
-                    if (ws !== null) {
-                        ws.send(JSON.stringify({
-                            type: 'stream',
-                            data: btoa(reader.result),
-                        }));
-                    }
-                };
-                reader.readAsArrayBuffer(e.data);
-            }
-
-            mediaRecorder.start(100);
-        });
-
-        videoTags[newVideo.id] = newVideo;
         document.getElementById("videoContainer").appendChild(newVideo);
 
         adjustVideoLayout();
     }
 
-    function clearVideoStreams() {
-        if (mediaRecorder !== null)
-            mediaRecorder.stop();
-
-        for (const [_, value] of Object.entries(videoTags)) {
-            value.parentNode.removeChild(value);
+    function clearVideoStreamsAndChat() {
+        let videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");
+        for (let i = videos.length - 1; i >= 0; i--) {
+            videos[i].parentNode.removeChild(videos[i]);
         }
-        videoTags = {};
-        videoSources = {};
-        videoBuffers = {};
+
+        chatWindow.value = '';
 
         adjustVideoLayout();
     }
 
     function removeVideoStream(streamId) {
-        if (streamId in videoTags) {
-            videoTags[streamId].parentNode.removeChild(videoTags[streamId]);
-            delete videoTags[streamId];
-        }
-        if (streamId in videoSources) {
-            delete videoSources[streamId];
-        }
-        if (streamId in videoBuffers) {
-            delete videoBuffers[streamId];
+        var videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");
+        for (var i = 0; i < videos.length; i++) {
+            if (videos[i].id === streamId) {
+                videos[i].parentNode.removeChild(videos[i]);
+                break;
+            }
         }
 
         adjustVideoLayout();
@@ -441,7 +376,7 @@
     }
 
     createAccountButton.onclick = function () {
-        showSelection('createAccount');
+        showSection('createAccount');
     };
 
     submitCreateAccountButton.onclick = function () {
