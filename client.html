@@ -253,7 +253,7 @@
             clearVideoStreamsAndChat();
             setTimeout(function () {
                 connect();
-            }, 5000);
+            }, 1000);
         }
         ws.onmessage = function (event) {
             var data = JSON.parse(event.data);
