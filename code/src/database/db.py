@@ -14,7 +14,7 @@ class userParams:
 
 class db:
   def __init__(self):
-    self.db = pg.connect("dbname=chat user=postgres")
+    self.db = pg.connect("dbname=chat user=frc password=\'123123\'")
     self.cursor = self.db.cursor()
 
   def select_all(self, params: userParams):
