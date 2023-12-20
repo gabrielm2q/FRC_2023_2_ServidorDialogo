@@ -43,7 +43,7 @@ https://projetofrc.com
 
 ## Apresentação do Projeto
 
-A apresentação do projeto está disponível no [**YouTube**](www.google.com). Os slides utilizados na apresentação estão disponíveis no [**Repositório do GitHub**](/docs/Slides_TrabalhoFinal_FRC_2023_2.pdf).
+A apresentação do projeto está disponível no [**YouTube**](https://youtu.be/a4OYEIwFHpk?si=euOOyYkmYbPuzmHB) e no [**Repositório do GitHub**](/video/apresentacao_trabalho_final.mp4). Os slides utilizados na apresentação estão disponíveis no [**Repositório do GitHub**](/docs/Slides_TrabalhoFinal_FRC_2023_2.pdf).
 
 ## Relatório do Projeto
 
