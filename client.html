@@ -2,6 +2,8 @@
 <html>
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Webcam Stream and Chat</title>
     <style>
         body {
@@ -115,7 +117,8 @@
             <input type="text" id="chatInput" class="input">
             <button id="chatSendButton" class="button">Enviar</button>
         </div>
-        <button id="backToTopicsButton" class="button" onclick="showSection('topic')" style="background-color: red;">Voltar para seleção de tópicos</button>
+        <button id="backToTopicsButton" class="button" onclick="backToTopic()" style="background-color: red;">Voltar
+            para seleção de tópicos</button>
     </div>
     <div id="topic" class="box" style="display: none;">
         <h1>Tipo de Conversa</h2>
@@ -156,6 +159,11 @@
     var newPasswordConfirmInput = document.querySelector("#newPasswordConfirmInput");
     var createAccount = document.querySelector("#createAccount");
 
+    var mediaRecorder = null;
+    var videoTags = {};
+    var videoSources = {};
+    var videoBuffers = {};
+
     function showSection(sectionId) {
         var sections = ['login', 'app', 'createAccount', 'topic', 'connectionStatus'];
 
@@ -164,18 +172,27 @@
         }
 
         if (sectionId === 'app') {
-            if (getThemeMode() === 'video') {
-                document.getElementById('chat').style.display = 'none';
-            } else {
+            if (isChatOn()) {
                 document.getElementById('chat').style.display = 'block';
+            } else {
+                document.getElementById('chat').style.display = 'none';
             }
 
-            if (getThemeMode() !== 'chat') {
+            if (isVideoOn()) {
                 addWebcam();
             }
         } else if (sectionId === 'topic') {
             clearVideoStreams();
         }
+    }
+
+    function backToTopic() {
+        if (ws !== null) {
+            ws.send(JSON.stringify({
+                type: 'quit_call'
+            }));
+        }
+        showSection('topic');
     }
 
     function selectOption(div) {
@@ -191,6 +208,7 @@
         };
         ws.onclose = function (event) {
             showSection('connectionStatus');
+            clearVideoStreams();
             setTimeout(function () {
                 connect();
             }, 5000);
@@ -223,7 +241,22 @@
                     alert('Falha no cadastro. ' + data.message);
                 }
             } else if (data.type === 'stream') {
-                // TODO
+                if (data.success) {
+                    const videoId = 'video-' + data.from;
+                    if (videoId in videoTags) {
+                        setVideoSrc(videoTags[videoId], data.data);
+                    } else {
+                        addVideoStream(data.data, data.from);
+                    }
+                }
+            } else if (data.type === 'quit_call') {
+                if (isVideoOn()) {
+                    removeVideoStream('video-' + data.nickname);
+                }
+                if (isChatOn()) {
+                    chatWindow.value += data.nickname + ' saiu da conversa.\n';
+                    chatWindow.scrollTop = chatWindow.scrollHeight;
+                }
             }
         };
         ws.onerror = function (event) {
@@ -266,6 +299,7 @@
     function addWebcam() {
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(function (stream) {
+                // TODO: currently it doesn't work with stream
                 addVideoStream(stream, 'me');
             })
             .catch(function (error) {
@@ -273,33 +307,107 @@
             });
     }
 
-    function addVideoStream(stream, streamId) {
-        var newVideo = document.createElement("video");
-        newVideo.srcObject = stream;
-        newVideo.id = 'video-' + streamId;
-        newVideo.autoplay = true;
-        newVideo.playsinline = true;
-        newVideo.className = 'videoElement';
-        if (stream === null) {
-            // TODO: add default image
-            newVideo.src = "https://media.w3.org/2010/05/sintel/trailer.mp4"
-            newVideo.volume = 0.0;
-            newVideo.addEventListener('timeupdate', function () {
-                if (newVideo.currentTime > 30) {
-                    newVideo.currentTime = 0;
+    function setVideoSrc(video, base64data) {
+        var mediaSource = new MediaSource();
+        mediaSource.addEventListener('sourceopen', function () {
+            console.log(mediaSource);
+            var sourceBuffer = mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
+            videoBuffers[video.id] = sourceBuffer;
+
+            sourceBuffer.addEventListener('updateend', function () {
+                if (!sourceBuffer.updating && mediaSource.readyState === 'open') {
+                    // mediaSource.endOfStream();
                 }
             });
-        }
+
+            if (base64data !== null)
+                sourceBuffer.appendBuffer(new Uint8Array(atob(base64data).split('').map(function (c) {
+                    return c.charCodeAt(0);
+                })));
+            else {
+                fetch('http://localhost:8000/video.webm')
+                    .then(function (response) {
+                        return response.arrayBuffer();
+                    })
+                    .then(function (arrayBuffer) {
+                        sourceBuffer.appendBuffer(arrayBuffer);
+                    })
+            }
+        });
+        video.src = URL.createObjectURL(mediaSource);
+    }
+    function addVideoStream(base64URLdata, streamId) {
+        var newVideo = document.createElement("video");
+        newVideo.id = 'video-' + streamId;
+        setVideoSrc(newVideo, base64URLdata, streamId);
+        newVideo.autoplay = true;
+        newVideo.loop = true;
+        newVideo.playsinline = true;
+        newVideo.className = 'videoElement';
+        newVideo.captureStream = newVideo.captureStream || newVideo.mozCaptureStream;
+        newVideo.play().then(function () {
+            mediaRecorder = new MediaRecorder(newVideo.captureStream(30), {
+                mimeType: 'video/webm'
+            });
+            mediaRecorder.ondataavailable = function (e) {
+                if (e.data.size === 0) {
+                    return;
+                }
+
+                var sourceBuffer = videoBuffers[newVideo.id];
+                if (sourceBuffer.updating || sourceBuffer.buffered.length > 0)
+                    return;
+
+                var reader = new FileReader();
+                reader.onload = function () {
+                    sourceBuffer.appendBuffer(new Uint8Array(reader.result));
+
+                    if (ws !== null) {
+                        ws.send(JSON.stringify({
+                            type: 'stream',
+                            data: btoa(reader.result),
+                        }));
+                    }
+                };
+                reader.readAsArrayBuffer(e.data);
+            }
+
+            mediaRecorder.start(100);
+        });
+
+        videoTags[newVideo.id] = newVideo;
         document.getElementById("videoContainer").appendChild(newVideo);
 
         adjustVideoLayout();
     }
 
     function clearVideoStreams() {
-        var videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");
-        while (videos.length > 0) {
-            videos[0].parentNode.removeChild(videos[0]);
+        if (mediaRecorder !== null)
+            mediaRecorder.stop();
+
+        for (const [_, value] of Object.entries(videoTags)) {
+            value.parentNode.removeChild(value);
         }
+        videoTags = {};
+        videoSources = {};
+        videoBuffers = {};
+
+        adjustVideoLayout();
+    }
+
+    function removeVideoStream(streamId) {
+        if (streamId in videoTags) {
+            videoTags[streamId].parentNode.removeChild(videoTags[streamId]);
+            delete videoTags[streamId];
+        }
+        if (streamId in videoSources) {
+            delete videoSources[streamId];
+        }
+        if (streamId in videoBuffers) {
+            delete videoBuffers[streamId];
+        }
+
+        adjustVideoLayout();
     }
 
     function getThemeMode() {
@@ -311,6 +419,9 @@
             return 'both';
         }
     }
+
+    function isChatOn() { return getThemeMode() !== 'video'; }
+    function isVideoOn() { return getThemeMode() !== 'chat'; }
 
     function adjustVideoLayout() {
         var videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");

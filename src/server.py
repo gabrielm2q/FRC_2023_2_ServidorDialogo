@@ -2,10 +2,11 @@ import asyncio
 import json
 
 from handler.login_handler import login_handler
-from handler.logout_handler import logout_handler
+from handler.logout_handler import logout_handler, quit_call_handler
 from handler.signup_handler import signup_handler
 from handler.chat_handler import chat_handler
 from handler.topic_handler import topic_handler
+from handler.stream_handler import stream_handler
 
 import websockets
 
@@ -26,8 +27,12 @@ async def main_handler(websocket: websockets.WebSocketServerProtocol):
                 await chat_handler(data)
             elif data_type == "topic":
                 await topic_handler(data)
+            elif data_type == "stream":
+                await stream_handler(data)
+            elif data_type == "quit_call":
+                await quit_call_handler(websocket.remote_address)
             else:
-                print("Unknown message type")
+                print(f"Unknown message type {data_type}")
                 continue
         except websockets.exceptions.ConnectionClosed:
             print(f"Connection closed from {websocket.remote_address}")
