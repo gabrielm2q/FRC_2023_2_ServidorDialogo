@@ -7,6 +7,7 @@ from handler import HandlerResponse
 from websockets import WebSocketServerProtocol
 
 
+# Interface para os dados recebidos pelo handler
 class TopicData(TypedDict):
     type: str
     remote_address: tuple[str, int]
@@ -15,6 +16,7 @@ class TopicData(TypedDict):
 
 
 async def topic_handler(data: TopicData) -> None:
+    # Verifica se o usuário está logado
     user = AllUserInfos.get_user(data["remote_address"])
     if user is None:
         response = HandlerResponse(
@@ -22,6 +24,7 @@ async def topic_handler(data: TopicData) -> None:
         )
         return await data["websocket"].send(json.dumps(response))
 
+    # Atualiza o tópico do usuário
     user.topic = data["topic"]
     AllUserInfos.add_user(data["remote_address"], user)
     response = HandlerResponse(
@@ -29,6 +32,7 @@ async def topic_handler(data: TopicData) -> None:
     )
     await data["websocket"].send(json.dumps(response))
 
+    # Avisa aos outros usuários que este usuário entrou no tópico
     for info in AllUserInfos.get_other_participants_same_topic(user):
         await info.websocket.send(
             json.dumps(
@@ -39,6 +43,7 @@ async def topic_handler(data: TopicData) -> None:
             )
         )
 
+    # Avisa aos outros usuários sobre o status deste usuário
     for info in AllUserInfos.get_other_users(user):
         await info.websocket.send(
             json.dumps(

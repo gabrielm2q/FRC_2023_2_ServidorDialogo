@@ -10,6 +10,8 @@ class UserInfo:
     topic: str | None = None
 
 
+# Classe que armazena o estado global dos usuários
+# Armazena todos os usuários logados, e os tópicos que eles estão
 class AllUserInfos:
     _remote_addresses: dict[tuple[str, int], UserInfo] = {}
     _topics: dict[str, tuple[str, int]]

@@ -7,6 +7,7 @@ from handler import HandlerResponse
 from websockets import WebSocketServerProtocol
 
 
+# Interface para os dados recebidos pelo handler
 class StreamData(TypedDict):
     type: str
     remote_address: tuple[str, int]
@@ -15,6 +16,7 @@ class StreamData(TypedDict):
 
 
 async def stream_handler(data: StreamData) -> None:
+    # Verifica se o usuário está logado
     user = AllUserInfos.get_user(data["remote_address"])
     if user is None:
         response = HandlerResponse(
@@ -22,6 +24,7 @@ async def stream_handler(data: StreamData) -> None:
         )
         return await data["websocket"].send(json.dumps(response))
 
+    # Verifica se o usuário está em algum tópico
     if user.topic is None:
         response = HandlerResponse(
             type=data["type"],
@@ -30,6 +33,7 @@ async def stream_handler(data: StreamData) -> None:
         )
         return await data["websocket"].send(json.dumps(response))
 
+    # Envia o conteúdo do vídeo para todos os outros participantes do tópico
     for info in AllUserInfos.get_other_participants_same_topic(user):
         response = {
             "success": True,

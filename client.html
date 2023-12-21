@@ -109,7 +109,7 @@
         <input type="text" id="nicknameInput" placeholder="Usuário" class="input">
         <input type="password" id="passwordInput" placeholder="Senha" class="input">
         <button id="loginButton" class="button">Login</button>
-        <button id="createAccountButton" class="button">Criar conta</button>
+        <button id="createAccountButton" class="button" onclick="showSection('createAccount')">Criar conta</button>
     </div>
     <div id="createAccount" class="box" style="display: none;">
         <h1>Criar conta</h1>
@@ -117,7 +117,7 @@
         <input type="password" id="newPasswordInput" placeholder="Senha" class="input">
         <input type="password" id="newPasswordConfirmInput" placeholder="Confirmar senha" class="input">
         <button id="submitCreateAccountButton" class="button">Criar conta</button>
-        <button id="cancelCreateAccountButton" class="button">Cancelar</button>
+        <button id="cancelCreateAccountButton" class="button" onclick="showSection('login')">Cancelar</button>
     </div>
     <div id="app" class="box" style="display: none;">
         <h1>Chat</h1>
@@ -172,15 +172,17 @@
     var newPasswordConfirmInput = document.querySelector("#newPasswordConfirmInput");
     var createAccount = document.querySelector("#createAccount");
 
+    // Status de todos os usuários
     var userStatus = {};
 
     function renderUserStatus() {
         var users = document.getElementById("users");
+        // limpa os status antigos
         while (users.firstChild) {
             users.removeChild(users.firstChild);
         }
 
-        console.log(userStatus);
+        // Adiciona os novos status de usuários
         for (var key in userStatus) {
             var user = document.createElement("span");
             user.className = 'userStatus';
@@ -207,33 +209,40 @@
     }
 
     function showSection(sectionId) {
+        // Atualiza a seção atual
         var sections = ['login', 'app', 'createAccount', 'topic', 'connectionStatus'];
 
         for (let i = 0; i < sections.length; i++) {
             document.getElementById(sections[i]).style.display = (sections[i] === sectionId ? 'block' : 'none')
         }
 
+        // Caso esteja entrando na seção de Chat-Video
         if (sectionId === 'app') {
+            // Ativa o Chat caso esteja selecionado, senão desativa
             if (isChatOn()) {
                 document.getElementById('chat').style.display = 'block';
             } else {
                 document.getElementById('chat').style.display = 'none';
             }
 
+            // Ativa a webcam caso tenha selecionado modo vídeo
             if (isVideoOn()) {
                 addWebcam();
             }
         } else if (sectionId === 'topic') {
+            // Limpa os vídeos e o chat caso esteja indo para a seção de tópicos
             clearVideoStreamsAndChat();
         }
     }
 
     function backToTopic() {
         if (ws !== null) {
+            // Avisa o servidor que o usuário saiu da conversa
             ws.send(JSON.stringify({
                 type: 'quit_call'
             }));
         }
+        // Seleciona a seção de tópicos
         showSection('topic');
     }
 
@@ -244,11 +253,14 @@
 
     var ws = null;
     function connect() {
+        // Conecta ao servidor
         ws = new WebSocket('ws://localhost:8765');
         ws.onopen = function (event) {
+            // Caso a conexão seja bem sucedida, mostra a seção de login
             showSection('login');
         };
         ws.onclose = function (event) {
+            // Caso a conexão seja perdida, mostra a seção de reconexão e tenta reconectar
             showSection('connectionStatus');
             clearVideoStreamsAndChat();
             setTimeout(function () {
@@ -259,6 +271,7 @@
             var data = JSON.parse(event.data);
             if (data.type === 'chat') {
                 if (data.success) {
+                    // Adiciona a mensagem no chat
                     chatWindow.value += data.message + '\n';
                     chatWindow.scrollTop = chatWindow.scrollHeight;
                 } else {
@@ -266,49 +279,58 @@
                 }
             } else if (data.type === 'login') {
                 if (data.success) {
+                    // Caso o login seja bem sucedido, mostra a seção de tópicos
                     showSection('topic');
                 } else {
                     alert('Falha no login. ' + data.message);
                 }
             } else if (data.type === 'topic') {
                 if (data.success) {
+                    // Caso a alteração de tópico seja bem sucedida, mostra a seção de Chat-Video
                     showSection('app');
                 } else {
                     alert('Falha na alteração do tópico. ' + data.message);
                 }
             } else if (data.type === 'signup') {
                 if (data.success) {
+                    // Caso o cadastro seja bem sucedido, mostra a seção de login
                     showSection('login');
                 } else {
                     alert('Falha no cadastro. ' + data.message);
                 }
             } else if (data.type === 'stream') {
                 if (data.success) {
-                    // didn't work :(
+                    // Não funcionou o streamming de vídeo
                 }
             } else if (data.type === 'quit_call') {
+                // Remove o vídeo do usuário que saiu da conversa
                 if (isVideoOn()) {
                     removeVideoStream('video-' + data.nickname);
                 }
+                // Adiciona a mensagem no chat
                 if (isChatOn()) {
                     chatWindow.value += data.nickname + ' saiu da conversa.\n';
                     chatWindow.scrollTop = chatWindow.scrollHeight;
                 }
             } else if (data.type === 'enter_call') {
+                // Adiciona a mensagem no chat
                 if (isChatOn()) {
                     chatWindow.value += data.nickname + ' entrou na conversa.\n';
                     chatWindow.scrollTop = chatWindow.scrollHeight;
                 }
+                // Adiciona o vídeo do usuário que entrou na conversa
                 if (isVideoOn()) {
                     addVideoStream(null, 'video-' + data.nickname);
                 }
             } else if (data.type === 'user_status') {
+                // Atualiza o status de todos os usuários
                 data.users.forEach(function (user) {
                     userStatus[user.nickname] = {
                         online: user.online,
                         topic: user.topic
                     };
                 });
+                // Renderiza o status de todos os usuários
                 renderUserStatus();
             }
         };
@@ -319,6 +341,7 @@
     connect();
 
     loginButton.onclick = function () {
+        // Validação dos campos
         if (nicknameInput.value === '') {
             alert('Usuário não pode ser vazio.');
             return;
@@ -328,6 +351,7 @@
             return;
         }
         if (ws !== null) {
+            // Envia o login para o servidor
             ws.send(JSON.stringify({
                 type: 'login',
                 nickname: nicknameInput.value,
@@ -337,10 +361,12 @@
     };
 
     chatSendButton.onclick = function () {
+        // Validação do campo
         if (chatInput.value === '') {
             return;
         }
         if (ws !== null) {
+            // Envia a mensagem para o servidor
             ws.send(JSON.stringify({
                 type: 'chat',
                 message: chatInput.value
@@ -352,15 +378,18 @@
     function addWebcam() {
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
             .then(function (stream) {
+                // Adiciona o vídeo do usuário
                 addVideoStream(stream, 'me');
             })
             .catch(function (error) {
+                // Caso não consiga acessar a webcam, mostra a mensagem de erro e volta para a seção de tópicos
                 alert('Falha ao acessar a webcam. ' + error);
                 backToTopic();
             });
     }
 
     function addVideoStream(stream, streamId) {
+        // Adiciona o vídeo do usuário
         var newVideo = document.createElement("video");
         newVideo.id = 'video-' + streamId;
         newVideo.srcObject = stream;
@@ -372,10 +401,12 @@
 
         document.getElementById("videoContainer").appendChild(newVideo);
 
+        // Redimensiona os vídeos
         adjustVideoLayout();
     }
 
     function clearVideoStreamsAndChat() {
+        // Limpa os vídeos e o chat
         let videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");
         for (let i = videos.length - 1; i >= 0; i--) {
             videos[i].parentNode.removeChild(videos[i]);
@@ -383,10 +414,12 @@
 
         chatWindow.value = '';
 
+        // Redimensiona os vídeos
         adjustVideoLayout();
     }
 
     function removeVideoStream(streamId) {
+        // Remove o vídeo do usuário
         var videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");
         for (var i = 0; i < videos.length; i++) {
             if (videos[i].id === streamId) {
@@ -395,10 +428,12 @@
             }
         }
 
+        // Redimensiona os vídeos
         adjustVideoLayout();
     }
 
     function getThemeMode() {
+        // Retorna o modo de conversa selecionado
         if (document.getElementById('theme-chat').checked) {
             return 'Apenas Chat';
         } else if (document.getElementById('theme-video').checked) {
@@ -408,10 +443,13 @@
         }
     }
 
+    // Retorna se o chat está ativo
     function isChatOn() { return getThemeMode() !== 'Apenas Vídeo'; }
+    // Retorna se o vídeo está ativo
     function isVideoOn() { return getThemeMode() !== 'Apenas Chat'; }
 
     function adjustVideoLayout() {
+        // Redimensiona os vídeos
         var videos = document.getElementById("videoContainer").getElementsByClassName("videoElement");
         var percentage = 100 / Math.ceil(Math.sqrt(videos.length));
         for (var i = 0; i < videos.length; i++) {
@@ -421,6 +459,7 @@
 
     function selectTheme(theme) {
         if (ws !== null) {
+            // Envia o tópico para o servidor
             ws.send(JSON.stringify({
                 type: 'topic',
                 topic: theme + ' (' + getThemeMode() + ')',
@@ -428,11 +467,8 @@
         }
     }
 
-    createAccountButton.onclick = function () {
-        showSection('createAccount');
-    };
-
     submitCreateAccountButton.onclick = function () {
+        // Validação dos campos
         if (newNicknameInput.value === '') {
             alert('Usuário não pode ser vazio.');
             return;
@@ -447,17 +483,13 @@
         }
 
         if (ws !== null) {
+            // Envia o cadastro para o servidor
             ws.send(JSON.stringify({
                 type: 'signup',
                 nickname: newNicknameInput.value,
                 password: newPasswordInput.value
             }));
         }
-    };
-
-    cancelCreateAccountButton.onclick = function () {
-        createAccount.style.display = 'none';
-        document.getElementById('login').style.display = 'block';
     };
 </script>
 </body>
